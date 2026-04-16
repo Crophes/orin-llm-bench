@@ -22,7 +22,7 @@ pip install -r requirements.txt
 ```
 
 The repository contains two host runner scripts (`llama_bench_runner.sh`
-and `mlc_bench_runner.sh`/benchmark.sh with mlc_bench.py/benchmark.py) with `llama_bench.py located in their respective
+and `mlc_bench_runner.sh/benchmark.sh` with `mlc_bench.py/benchmark.py`), while `llama_bench.py` is located in their respective
 container.
 
 ---
