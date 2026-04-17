@@ -21,9 +21,13 @@ cd jetson-containers
 pip install -r requirements.txt
 ```
 
-The repository contains two host runner scripts (`llama_bench_runner.sh`
-and `mlc_bench_runner.sh/benchmark.sh` with `mlc_bench.py/benchmark.py`), while `llama_bench.py` is located in their respective
-container.
+This repository contains two host runner scripts (`llama_bench_runner.sh`
+and `mlc_bench_runner.sh`) alongside `mlc_bench.py`, which is mounted into
+the MLC container by the runner script at runtime. `llama_bench_memory.py`
+runs inside the llama.cpp container. The MLC runner script is based on
+`benchmark.sh` from the jetson-containers repository, and `mlc_bench.py`
+is based on `benchmark.py` from the same repository — see the
+[MLC Benchmarks](#mlc-benchmarks) section for details on the modifications made.
 
 ---
 
@@ -103,10 +107,9 @@ jetson-containers run \
     llama-bench -m /models/your-model.gguf -ngl 99 -fa 1
 ```
 
-`-ngl 99` offloads all layers to the GPU.\
-`-fa 1` enables flash attention.
-Use `-fa 0` to disable it.\
-`-o csv/json` for detailed output
+`-ngl 99` offloads all layers to the GPU.
+`-fa 1` enables flash attention, use `-fa 0` to disable it.
+`-o csv` or `-o json` for structured output.
 
 ### 4. Using a specific version of llama.cpp
 
@@ -136,8 +139,8 @@ cmake -B build -DGGML_CUDA=ON
 cmake --build build -j$(nproc)
 ```
 
-To run benchmarks with the newly built version, navigate to the new
-llama.cpp directory and use the local binary directly:
+To run benchmarks with the newly built version, navigate to the llama.cpp
+directory and use the local binary directly:
 
 ```bash
 cd llama.cpp
@@ -157,14 +160,16 @@ jetson-containers run \
     llama-server \
         --hf Qwen/Qwen3-1.7B-GGUF \
         --jinja \
-        --c 0 \
+        -c 0 \
         --host 127.0.0.1 \
         --port 8033
 ```
+
 Use `--hf <repository>` to download and run a model directly from HuggingFace,
-or `-m /models/your-model.gguf` to use a local model file.\
-`-c 0` sets the size of the prompt context to model default, instead of 4096.\
-`--jinja` uses the jinja template for chat.\
+or `-m /models/your-model.gguf` to use a local model file.
+`-c 0` sets the context size to the model default instead of 4096.
+`--jinja` enables the Jinja chat template.
+
 Open `http://127.0.0.1:8033` in a browser on the Jetson.
 
 ---
@@ -223,15 +228,15 @@ mlc_llm gen_config Llama-3.1-8B-Instruct \
 
 ### 3. Run the benchmarks
 
-The MLC benchmark runner script is based on the original
-`benchmark.sh` from the jetson-containers repository at `jetson-containers/packages/llm/mlc`. You can either
-adapt that script directly or create your own based on `mlc_bench_runner.sh`
-in your repository. The key modifications made relative to the original are:
+The MLC benchmark runner script is based on `benchmark.sh` from the
+jetson-containers repository at `jetson-containers/packages/llm/mlc`.
+You can either adapt that script directly or use `mlc_bench_runner.sh`
+from this repository. The key modifications made relative to the original are:
 
 - `MAX_NUM_PROMPTS` reduced from 4 to 1
 - `PROMPT` changed from the 16-token to the 512-token completion file
 - `SKIP_QUANTIZATION` set to `yes` to use pre-converted local models
-- Model path changed to use local `/mlc_models` directory
+- Model path changed to use the local `/mlc_models` directory
 
 Edit `mlc_bench_runner.sh` and set the volume mount path for your
 mlc_models directory, then run from the host:
@@ -240,9 +245,15 @@ mlc_models directory, then run from the host:
 bash mlc_bench_runner.sh
 ```
 
-The 512-token prompt file used for benchmarking is included in the
-jetson-containers repository at:
-`jetson-containers/data/prompts/completion_512.json`
+The 512-token prompt file is included in the jetson-containers repository at
+`jetson-containers/data/prompts/completion_512.json`.
+
+`mlc_bench.py` is located on the host alongside `mlc_bench_runner.sh`
+and is mounted into the container by the runner script at runtime.
+It is based on `benchmark.py` from the jetson-containers repository
+with one modification: the averaging logic was corrected to handle the
+case where `max_num_prompts` is set to 1, which would otherwise cause a
+division-by-zero error when computing average statistics over a single prompt.
 
 > **Note:** The MLC benchmark runs each configuration once with no
 > repetition averaging. Standard deviation is not reported.
